@@ -1,27 +1,62 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 
 #include "InventoryComponent.h"
+#include "ToyProjects.h"
 
 // Sets default values
-AInventoryComponent::AInventoryComponent()
+UInventoryComponent::UInventoryComponent()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 
 }
 
-// Called when the game starts or when spawned
-void AInventoryComponent::BeginPlay()
+void UInventoryComponent::AddItem(FName ItemId, int32 Amount)
 {
-	Super::BeginPlay();
-	
+	if(ItemId.IsNone() || Amount <= 0)
+	{
+		return;
+	}
+	int32 Count = Items.FindOrAdd(ItemId);
+	Count += Amount;
+	OnInventoryChanged.Broadcast(ItemId, Count);
 }
 
-// Called every frame
-void AInventoryComponent::Tick(float DeltaTime)
+bool UInventoryComponent::RemoveItem(FName ItemId, int32 Amount)
 {
-	Super::Tick(DeltaTime);
+	if(Amount<=0)
+	{
+		return false;
+	}
 
+	int32* Count = Items.Find(ItemId);
+
+	if(!Count||*Count < Amount)
+	{
+		return false;
+	}
+
+	*Count -= Amount;
+	const int32 NewCount = *Count;
+
+	if (NewCount == 0)
+	{
+		Items.Remove(ItemId);
+	}
+	OnInventoryChanged.Broadcast(ItemId, *Count);
+
+	return true;
+}
+
+int32 UInventoryComponent::GetCount(FName ItemId) const
+{
+	return Items.FindRef(ItemId);
+}
+
+void UInventoryComponent::LogContents() const
+{
+	UE_LOG(LogToyProjects, Log, TEXT("---Inventory (%d kinds)---"), Items.Num());
+	for (const TPair<FName, int32>& Pair : Items)
+	{
+		UE_LOG(LogToyProjects, Log, TEXT(" %s x%d"), *Pair.Key.ToString(), Pair.Value);
+	}
 }
 
